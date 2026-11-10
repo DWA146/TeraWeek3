@@ -1,14 +1,14 @@
-print("Hello, World!")
-
 function love.load()
 
     state = "menu"
     mode = "pvp"
     menuChoice = 1
-    botSpeed = 300
+    botSpeed = 250
 
     love.window.setTitle("P-NG")
     W , H = 800, 600
+    HUD = 80
+    love.window.setMode(W, H + HUD)
 
     paddleW, paddleH, paddleSpeed = 15, 100, 400
 
@@ -18,7 +18,9 @@ function love.load()
 
     hitsNeeded = 5
     superMult = 3
-    maxSpeed=  1200
+    maxSpeed=  1500
+    baseSpeed = 300
+    angleBoost = 1.5
     trail = {}
     trailTimer = 0 
     maxHealth = 100
@@ -56,6 +58,8 @@ function love.keypressed(key)
         state = "menu"
         p1.health = maxHealth
         p2.health = maxHealth
+        p1.hits, p2.hits = 0, 0 
+        p1.armed, p2.armed = false, false
         gameOver = false
         winner = ""
         resetBall()
@@ -143,7 +147,6 @@ function love.update(dt)
         end
     end
 
-
     -- richocheting balls
     if ball.y < 0 then
         ball.y = 0
@@ -195,7 +198,8 @@ end
 function bounce(p)
     ball.dx = -ball.dx * 1.05
     local hitPos = (ball.y + ball.size/2) - (p.y + paddleH/2)
-    ball.dy = hitPos * 5
+    local speedFactor = (math.abs(ball.dx) / baseSpeed) ^ angleBoost
+    ball.dy = hitPos * 5 * speedFactor
 
     if p.armed then
         ball.dx = ball.dx * superMult
@@ -213,7 +217,6 @@ function bounce(p)
     ball.dy = math.max(-maxSpeed, math.min(maxSpeed, ball.dy))
 
 end
-
 
 local function barcolor(h)
     if h > 60 then
@@ -248,8 +251,10 @@ function love.draw()
         return
     end
 
-
     -- paddies
+
+    love.graphics.push()
+    love.graphics.translate(0, HUD)
     love.graphics.setColor(1, 1, 1)
     love.graphics.rectangle("fill", p1.x, p1.y, paddleW, paddleH)
     love.graphics.rectangle("fill", p2.x, p2.y, paddleW, paddleH)
@@ -264,7 +269,7 @@ function love.draw()
         local off = (ball.size - s) / 2
         love.graphics.rectangle("fill", t.x + off, t.y + off, s, s)
     end
-
+     
     -- suuuupeerrrr ball
     if ball.super then
         love.graphics.setColor(0.5, 0.5, 1)
@@ -272,6 +277,20 @@ function love.draw()
         love.graphics.setColor(1, 1, 1)
     end
     love.graphics.rectangle("fill", ball.x, ball.y, ball.size, ball.size)
+
+
+    
+
+    -- superrr readdyy hint
+    love.graphics.setColor(0.2,0.1,0.5)
+    if p1.armed then
+        love.graphics.rectangle("fill", p1.x - 2, p1.y - 2, paddleW + 4, paddleH + 4)
+    end
+    if p2.armed then
+        love.graphics.rectangle("fill", p2.x - 2, p2.y - 2, paddleW + 4, paddleH + 4)
+    end
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.pop()
 
     -- hit counters
     for i = 1, hitsNeeded do
@@ -287,15 +306,6 @@ function love.draw()
         end
     end
 
-    -- superrr readdyy hint
-    love.graphics.setColor(0.2,0.1,0.5)
-    if p1.armed then
-        love.graphics.rectangle("fill", p1.x - 2, p1.y - 2, paddleW + 4, paddleH + 4)
-    end
-    if p2.armed then
-        love.graphics.rectangle("fill", p2.x - 2, p2.y - 2, paddleW + 4, paddleH + 4)
-    end
-    love.graphics.setColor(1, 1, 1)
     -- health barrr
     love.graphics.setColor(0.3, 0.3, 0.3)
     love.graphics.rectangle("fill", 20, 20, 300, 25)
@@ -310,8 +320,8 @@ function love.draw()
     
     --game over screen
     if gameOver then
-        love.graphics.setColor(0.9, 0.1, 0.1)
-        love.graphics.printf(winner .. " wins!\nPress R to restart", 0, H/2 - 40,W, "center", 0 ,1 ,1 )
+        love.graphics.setColor(0.1, 0.9, 0.1)
+        love.graphics.printf(winner .. " wins!\nPress R to restart", 0, H/2 - 40 + HUD,W, "center", 0 ,1 ,1 )
     end
 
 
