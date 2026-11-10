@@ -27,6 +27,16 @@ function love.load()
     dmg = 20
     gameOver = false
     winner = ""
+    abilities = {"super","heal", "double"}
+    abilityInfo = {
+        super  = {name = "super Hit", desc = "Next hit launches the ball at x2 SPEED"},
+        heal   = {name = "Heal", desc = "Instantly restore 20 HEALTH"},
+        double = {name = "Heavy Hit", desc = "Next hit does x2 DAMAGE"},
+    }
+    p1.ability = "super"
+    p2.ability = "super"
+    selectIdx = 1
+    selectPlayer = 1
 
     resetBall()
 end
@@ -43,6 +53,19 @@ function resetBall()
     }
 
 end
+function activateAbility(p)
+    if p.hits < hitsNeeded then return end
+    if p.ability == "heal" then
+        p.health = math.min(maxHealth, p.health + 20)
+        p.hits = 0
+    else
+        p.armed = true
+    end
+end
+
+
+
+
 
 function love.keypressed(key)
     if state == "menu" then
@@ -50,10 +73,50 @@ function love.keypressed(key)
             menuChoice = (menuChoice == 1) and 2 or 1
         elseif key == "return" then
             mode = (menuChoice == 1) and "pvp" or "bot"
-            state = "playing"
+            state = "select"
+            selectPlayer = 1
+            selectIdx = 1
         end
         return
     end
+
+    if state == "select" then
+            if key == "up" then
+                selectIdx = selectIdx - 1
+                if selectIdx < 1 then
+                    selectIdx = #abilities
+                end
+
+            elseif key == "down" then
+                selectIdx = selectIdx + 1
+                if selectIdx > #abilities then
+                    selectIdx = 1 
+                end
+
+            elseif key == "return" then
+                local p = (selectPlayer == 1) and p1 or p2
+                p.ability = abilities[selectIdx]
+                if selectPlayer == 1 and mode == "pvp" then
+                    selectPlayer = 2
+                    selectIdx = 1
+                else
+                    if mode == "bot" then
+                        p2.ability = abilities[love.math.random(#abilities)]
+
+                    end
+                    state = "playing"
+                    
+                end
+
+            elseif key == "escape" then
+                state = "menu"
+            end
+            return
+
+        end
+
+           
+
     if key == "escape" then
         state = "menu"
         p1.health = maxHealth
@@ -66,12 +129,12 @@ function love.keypressed(key)
         return
     end
 
-    if key == "d" and p1.hits >= hitsNeeded then -- super shot | you gotta have 5+ bounces already to use then press d on ur keyboard
-        p1.armed = true
+    if key == "d" then -- super shot | you gotta have 5+ bounces already to use then press d on ur keyboard
+        activateAbility(p1)
     end
 
-    if key == "left" and mode == "pvp" and p2.hits >= hitsNeeded then 
-        p2.armed = true 
+    if key == "left" and mode == "pvp"then 
+        activateAbility(p2)
     end
 
 
@@ -89,7 +152,7 @@ end
 
 function love.update(dt)
     -- game overness
-    if state == "menu" or gameOver then return end
+    if state ~= "playing" or gameOver then return end
 
     --player 1
     if love.keyboard.isDown("w") then
@@ -113,9 +176,7 @@ function love.update(dt)
     else
         -- bot
         local target = ball.y + ball.size/2 - paddleH/2
-        if p2.hits >= hitsNeeded then
-            p2.armed = true
-        end
+        activateAbility(p2)
 
         if p2.y < target - 10 then
             p2.y = p2.y + botSpeed * dt
@@ -168,13 +229,13 @@ function love.update(dt)
 
     -- health
     if ball.x < 0 then
-        p1.health = p1.health - dmg
+        p1.health = p1.health - (ball.double and dmg * 2 or dmg)
         resetBall()
     
     end
 
     if ball.x > W then
-        p2.health = p2.health - dmg
+        p2.health = p2.health - (ball.double and dmg * 2 or dmg)
         resetBall()
 
     end
@@ -202,13 +263,22 @@ function bounce(p)
     ball.dy = hitPos * 5 * speedFactor
 
     if p.armed then
-        ball.dx = ball.dx * superMult
-        ball.dy = ball.dy * superMult
-        ball.super = true
+        ball.double = false
+        if p.ability == "super" then
+            ball.dx = ball.dx * superMult
+            ball.dy = ball.dy * superMult
+            ball.super = true
+        elseif p.ability == "double" then
+            ball.dx = ball.dx * 1.5
+            ball.dy = ball.dy * 1.5
+            ball.double = true
+            ball.super = true
+        end
         p.armed = false
         p.hits = 0
     else
         ball.super = false
+        ball.double = false
         p.hits = math.min(hitsNeeded, p.hits + 1)
     end
 
@@ -250,6 +320,32 @@ function love.draw()
         love.graphics.setColor(1, 1, 1)
         return
     end
+
+    if state == "select" then
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("Player " .. selectPlayer .. ": choose ability", 0, 100, W, "center")
+
+        for i, key in ipairs(abilities) do
+            local info = abilityInfo[key]
+            local label = info.name
+            if i == selectIdx then
+                love.graphics.setColor(1, 0.8, 1)
+                label = "> " .. label .. " <"
+            else
+                love.graphics.setColor(1, 1, 1)
+            end
+            love.graphics.printf(label, 0, 200 + i * 70, W, "center")
+            love.graphics.setColor(0.6, 0.6 ,0.6)
+            love.graphics.printf(info.desc, 0, 225 + i * 70, W, "center")
+        end
+        love.graphics.setColor(0.6, 0.6, 0.6)
+        love.graphics.printf("Up/Down to choose, Enter to confirm, Esc to go back", 0, H - 60, W, "center")
+        love.graphics.printf("Ability key: D (Player 1), Left arrow (Player 2)", 0, H - 30, W, "center")
+        love.graphics.setColor(1, 1, 1)
+        return
+    end
+
+
 
     -- paddies
 
